@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Two people, one seat</title>
+<style>
+  :root { --bg:#f3f5fb; --card:#ffffff; --line:#dfe4f0; --text:#1d2433; --mute:#6b7690;
+          --blue:#3b6ef6; --soft:#e9efff; --amber:#e8a317; --amberbg:#fff6df; --grey:#a3abbd; }
+  * { box-sizing:border-box; }
+  body { margin:0; padding:28px 16px 40px; background:var(--bg); color:var(--text);
+         font-family:system-ui,-apple-system,Segoe UI,sans-serif; }
+  .wrap { max-width:960px; margin:0 auto; }
+  h1 { font-size:28px; margin:0 0 6px; text-align:center; }
+  .sub { text-align:center; color:var(--mute); margin:0 0 20px; font-size:16px; }
+
+  .seg { display:flex; justify-content:center; margin-bottom:22px; }
+  .seg label { cursor:pointer; }
+  .seg input { display:none; }
+  .seg span { display:block; padding:10px 20px; border:1.5px solid var(--line); background:var(--card);
+              color:var(--mute); font-weight:600; font-size:15px; }
+  .seg label:first-child span { border-radius:999px 0 0 999px; }
+  .seg label:last-child span { border-radius:0 999px 999px 0; border-left:none; }
+  .seg input:checked + span { background:var(--blue); border-color:var(--blue); color:#fff; }
+
+  .stage { display:grid; grid-template-columns:1fr 190px 1fr; gap:16px; align-items:start; }
+  @media (max-width:820px) { .stage { grid-template-columns:1fr; } }
+
+  .col, .seat { background:var(--card); border:1.5px solid var(--line); border-radius:18px; padding:18px; }
+  .who { display:flex; align-items:center; gap:10px; margin-bottom:4px; }
+  .avatar { font-size:34px; }
+  .name { font-weight:700; font-size:18px; }
+  .when { color:var(--mute); font-size:13px; margin:0 0 14px 44px; }
+
+  .steps { list-style:none; margin:0; padding:0; }
+  .step { position:relative; display:flex; gap:12px; padding-bottom:18px; }
+  .step:last-child { padding-bottom:0; }
+  .step::before { content:""; position:absolute; left:10px; top:22px; bottom:-2px; width:2px; background:var(--line); }
+  .step:last-child::before { display:none; }
+  .dot { flex:0 0 22px; height:22px; border-radius:50%; border:2px solid var(--grey); background:#fff; z-index:1; }
+  .stitle { font-weight:600; font-size:15px; color:var(--mute); }
+  .ssub { font-size:13px; color:var(--mute); min-height:18px; margin-top:2px; }
+
+  .step.done .dot { background:var(--blue); border-color:var(--blue); }
+  .step.done::before { background:var(--blue); }
+  .step.done .stitle { color:var(--text); }
+  .step.active .dot { border-color:var(--blue); box-shadow:0 0 0 4px var(--soft); animation:pulse 1.2s infinite; }
+  .step.active .stitle { color:var(--text); }
+  .step.wait .dot { border-color:var(--amber); background:var(--amberbg); animation:pulse 1.2s infinite; }
+  .step.wait .stitle { color:var(--text); }
+  .step.wait .ssub { color:#a9730a; }
+  .step.stopped .dot { border-style:dashed; }
+  @keyframes pulse { 50% { box-shadow:0 0 0 7px transparent; } }
+
+  .result { margin-top:8px; padding:10px 12px; border-radius:12px; font-weight:700; font-size:15px; display:none; }
+  .result.ticket { display:block; background:var(--soft); color:var(--blue); border:1.5px solid #c8d7ff; }
+  .result.taken  { display:block; background:#f1f2f6; color:var(--mute); border:1.5px dashed var(--grey); }
+
+  .seat { text-align:center; }
+  .seat .icon { font-size:64px; line-height:1.1; }
+  .seat .label { color:var(--mute); font-size:13px; margin-top:4px; }
+  .seat .state { font-weight:800; font-size:20px; margin-top:6px; }
+  .seat .owner { font-size:14px; color:var(--mute); margin-top:4px; min-height:20px; }
+  @keyframes flash { 0% { background:var(--amberbg); } 100% { background:var(--card); } }
+  .seat.flash { animation:flash 1.2s; }
+
+  .story { margin-top:18px; background:var(--card); border:1.5px solid var(--line); border-radius:18px;
+           padding:18px 22px; font-size:18px; font-weight:600; min-height:70px;
+           display:flex; align-items:center; justify-content:center; text-align:center; }
+  .summary { display:none; margin-top:14px; background:var(--soft); border:1.5px solid #c8d7ff;
+             border-radius:18px; padding:18px 22px; text-align:center; }
+  .summary.show { display:block; }
+  .summary .big { font-size:20px; font-weight:800; margin-bottom:6px; }
+  .summary .small { font-size:15px; color:var(--mute); }
+
+  .buttons { display:flex; justify-content:center; gap:12px; margin-top:20px; }
+  button { padding:14px 24px; border-radius:12px; border:1.5px solid var(--line); background:var(--card);
+           color:var(--text); font-size:16px; font-weight:700; cursor:pointer; }
+  button.go { background:var(--blue); border-color:var(--blue); color:#fff; }
+  button:disabled { opacity:.5; cursor:wait; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Two people. One Movie seat. 🎬</h1>
+  <p class="sub">Seat A10 is the last seat. You and your friend both try to book it.</p>
+
+  <div class="seg">
+    <label><input type="radio" name="mode" value="buggy" checked><span>Scenario 1 when both attempt to book</span></label>
+    <label><input type="radio" name="mode" value="fixed"><span>Scenario 2 with out-of-order updates</span></label>
+  </div>
+
+  <div class="stage">
+    <div class="col" id="colA"></div>
+    <div class="seat" id="seatbox">
+      <div class="icon">💺</div>
+      <div class="label">Seat A10 in the database</div>
+      <div class="state" id="seatState">Free</div>
+      <div class="owner" id="seatOwner"></div>
+    </div>
+    <div class="col" id="colB"></div>
+  </div>
+
+  <div class="story" id="story">Press the button to start.</div>
+  <div class="summary" id="summary"><div class="big" id="sumBig"></div><div class="small" id="sumSmall"></div></div>
+
+  <div class="buttons">
+    <button id="btnStart" class="go">▶ Start: both try to book</button>
+    <button id="btnReset">↺ Reset</button>
+  </div>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const mode = () => document.querySelector('input[name=mode]:checked').value;
+
+const FRIEND_DELAY = 700;     // friend taps Book this many ms after you
+const SHOW_GAP = 300;         // minimum gap between events on screen
+const USERS = ['User A', 'User B'];
+const LABEL = { 'User A': 'You', 'User B': 'Friend' };
+const COL = { 'User A': 'colA', 'User B': 'colB' };
+const AVATAR = { 'User A': '', 'User B': '' };
+const TITLES = ['Taps Book', 'Database checks the seat', 'Pays & reserves', 'Result'];
+
+let model = {};
+let lastId = 0, polling = false, prevOwner = null;
+let queue = [], draining = false;
+
+function freshModel() {
+  USERS.forEach((u) => {
+    model[u] = { steps: TITLES.map(() => ({ state: '', sub: '' })), result: '' };
+  });
+}
+
+function buildColumns() {
+  USERS.forEach((u) => {
+    const when = u === 'User A' ? 'Taps first' : `Taps ${FRIEND_DELAY / 1000} s later`;
+    $(COL[u]).innerHTML = `
+      <div class="who"><span class="avatar">${AVATAR[u]}</span><span class="name">${LABEL[u]}</span></div>
+      <p class="when">${when}</p>
+      <ul class="steps">${TITLES.map((t, i) => `
+        <li class="step" data-i="${i}">
+          <div class="dot"></div>
+          <div><div class="stitle">${t}</div><div class="ssub"></div>
+          ${i === 3 ? '<div class="result"></div>' : ''}</div>
+        </li>`).join('')}
+      </ul>`;
+  });
+}
+
+function render(u) {
+  const m = model[u];
+  $(COL[u]).querySelectorAll('.step').forEach((el, i) => {
+    el.className = 'step ' + m.steps[i].state;
+    el.querySelector('.ssub').textContent = m.steps[i].sub;
+  });
+  const r = $(COL[u]).querySelector('.result');
+  r.className = 'result ' + m.result;
+  r.textContent = m.result === 'ticket' ? '🎟 Ticket confirmed'
+                : m.result === 'taken' ? 'Seat was just taken' : '';
+}
+
+function set(u, i, state, sub) { model[u].steps[i] = { state, sub: sub ?? '' }; }
+
+function other(u) { return u === 'User A' ? 'User B' : 'User A'; }
+
+function narrate(e) {
+  const me = LABEL[e.user], they = LABEL[other(e.user)];
+  const isYou = e.user === 'User A';
+  const m = mode();
+  if (e.step === 'checking' && isYou) return 'You tap Book. Your request goes to the database.';
+  if (e.step === 'checking' && !isYou) return 'Your friend taps Book a moment later.';
+  if (e.step === 'locking') {
+    const busy = model[other(e.user)].steps[2].state === 'active';
+    return busy
+      ? `The seat is being booked by ${they}, so ${me} has to wait in line.`
+      : `${me} asks the database for the seat. The database lets ${me} in first.`;
+  }
+  if (e.step === 'sees' && e.seen === 'AVAILABLE')
+    return m === 'buggy' && !isYou && model['User A'].steps[2].state === 'active'
+      ? 'Your friend asks the database too. It still says "free", because nobody has booked yet.'
+      : `The database tells ${me}: seat A10 is free.`;
+  if (e.step === 'sees') return `The database tells ${me}: seat A10 is already taken.`;
+  if (e.step === 'paying') return `${me} is paying. This takes 2 seconds, which keeps the gap open.`;
+  if (e.step === 'booked')
+    return model[other(e.user)].result === 'ticket'
+      ? `${me} also gets a ticket.`
+      : `${me} gets the ticket. Seat A10 is booked.`;
+  if (e.step === 'failed') return `${me} is told the seat was just taken.`;
+  return null;
+}
+
+function handle(e) {
+  const u = e.user;
+  if (e.step === 'checking') { set(u, 0, 'done', 'Request sent'); set(u, 1, 'active', 'Asking about seat A10'); }
+  if (e.step === 'locking') {
+    const busy = model[other(u)].steps[2].state === 'active';
+    set(u, 0, 'done', 'Request sent');
+    set(u, 1, 'wait', busy ? 'Waiting in line…' : 'Asking for the seat…');
+  }
+  if (e.step === 'sees')
+    set(u, 1, 'done', e.seen === 'AVAILABLE' ? 'Database says: free' : 'Database says: taken');
+  if (e.step === 'paying') set(u, 2, 'active', 'Paying… (2 s)');
+  if (e.step === 'booked') { set(u, 2, 'done', 'Seat reserved'); set(u, 3, 'done', ''); model[u].result = 'ticket'; }
+  if (e.step === 'failed') { set(u, 2, 'stopped', 'Nothing to pay'); set(u, 3, 'stopped', ''); model[u].result = 'taken'; }
+  render(u);
+
+  const line = narrate(e);
+  if (line) $('story').textContent = line;
+  checkSummary();
+}
+
+function checkSummary() {
+  const a = model['User A'].result, b = model['User B'].result;
+  if (!a || !b) return;
+  const s = $('summary');
+  s.classList.add('show');
+  if (a === 'ticket' && b === 'ticket') {
+    $('sumBig').textContent = 'One seat, two tickets.';
+    $('sumSmall').textContent = 'Both of you checked before anyone booked, so each of you acted on old information. The last booking overwrote the first.';
+  } else {
+    $('sumBig').textContent = 'One seat, one ticket.';
+    $('sumSmall').textContent = 'The database let one request in first and made the other wait. When it looked again, the seat was already taken.';
+  }
+}
+
+function enqueue(e) { queue.push(e); if (!draining) drain(); }
+async function drain() {
+  draining = true;
+  while (queue.length) { handle(queue.shift()); await sleep(SHOW_GAP); }
+  draining = false;
+}
+
+function renderSeat(seat) {
+  const free = seat.status === 'AVAILABLE';
+  $('seatState').textContent = free ? 'Free' : 'Booked';
+  $('seatOwner').textContent = seat.booked_by ? 'by ' + LABEL[seat.booked_by] : '';
+  if (prevOwner && seat.booked_by && prevOwner !== seat.booked_by) {
+    $('seatbox').classList.add('flash');
+    setTimeout(() => $('seatbox').classList.remove('flash'), 1200);
+  }
+  prevOwner = seat.booked_by;
+}
+
+async function poll() {
+  if (polling) return;
+  polling = true;
+  try {
+    const evs = await (await fetch('/events?after=' + lastId)).json();
+    evs.forEach((e) => { lastId = e.id; enqueue(e); });
+    renderSeat(await (await fetch('/seat')).json());
+  } catch (err) {}
+  polling = false;
+}
+setInterval(poll, 120);
+
+function clearScreen(text) {
+  queue = [];
+  freshModel();
+  USERS.forEach(render);
+  $('story').textContent = text;
+  $('summary').classList.remove('show');
+  prevOwner = null;
+}
+
+async function doReset(text) {
+  await fetch('/reset', { method: 'POST' });
+  clearScreen(text);
+}
+
+function book(user) {
+  return fetch('/book-' + mode(), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ user }),
+  });
+}
+
+$('btnStart').onclick = async () => {
+  $('btnStart').disabled = true; $('btnReset').disabled = true;
+  await doReset('Get ready…');
+  const p1 = book('User A');
+  await sleep(FRIEND_DELAY);
+  const p2 = book('User B');
+  await Promise.all([p1, p2]);
+  while (draining || queue.length) await sleep(100);
+  $('btnStart').disabled = false; $('btnReset').disabled = false;
+};
+$('btnReset').onclick = () => doReset('Press the button to start.');
+document.querySelectorAll('input[name=mode]').forEach((r) => {
+  r.onchange = () => doReset('Press the button to start.');
+});
+
+buildColumns();
+freshModel();
+USERS.forEach(render);
+</script>
+</body>
+</html>
